@@ -66,7 +66,7 @@ public class MemoryManager<T>
           {
             ConcurrentLinkedQueue<WeakReference<T>> queue = _sizeMap.get(_initializer.size(buf));
             // buf is wrapped in WeakReference. this allows GC to reclaim the buffer memory
-            _initializer.init(buf);// pre-initializing the buffer in parallel so we save time when it is requested later.
+            // pre-initializing the buffer in parallel so we save time when it is requested later.
             queue.offer(new WeakReference<T>(buf));
             int x =_releaseQueueSize.decrementAndGet();
           }
@@ -108,6 +108,7 @@ public class MemoryManager<T>
         if(buf != null)
         {
           _hits.incrementAndGet();
+          _initializer.init(buf);
           return buf;
         }
       }

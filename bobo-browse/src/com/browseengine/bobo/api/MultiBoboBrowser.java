@@ -111,7 +111,8 @@ public class MultiBoboBrowser extends MultiSearcher implements Browsable
 	    			 list = new ArrayList<FacetAccessible>(browsers.length);
 	    			 mergedMap.put(name, list);
 	    		  }
-	    		  list.add(facetAccessor);
+	    		  if (!list.contains(facetAccessor))
+	    		    list.add(facetAccessor);
 	    	  }
 	    	  facetColMap.clear();
 	      }

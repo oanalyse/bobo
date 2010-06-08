@@ -37,7 +37,7 @@ public abstract class DefaultFacetCountCollector implements FacetCountCollector
   protected FacetDataCache _dataCache;
   private final String _name;
   protected final BrowseSelection _sel;
-  protected final BigSegmentedArray _array;
+  protected BigSegmentedArray _array;
   private int _docBase;
   protected LinkedList<int[]> intarraylist = new LinkedList<int[]>();
   private Iterator _iterator;
@@ -82,6 +82,17 @@ public abstract class DefaultFacetCountCollector implements FacetCountCollector
     }
     _array = _dataCache.orderArray;
     _docBase = docBase;
+  }
+
+  public FacetDataCache get_dataCache()
+  {
+    return _dataCache;
+  }
+
+  public void set_dataCache(FacetDataCache dataCache)
+  {
+    _dataCache = dataCache;
+    _array = _dataCache.orderArray;
   }
 
   public String getName()
@@ -195,6 +206,7 @@ public abstract class DefaultFacetCountCollector implements FacetCountCollector
     {
       intarraymgr.release(buf);
     }
+    intarraylist.clear();
   }
 
   /**

@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Arrays;
 
 import org.apache.log4j.Logger;
 import org.apache.lucene.index.IndexReader;
@@ -36,7 +37,7 @@ public class FacetDataCache<T> implements Serializable {
 	public int[] minIDs;
 	public int[] maxIDs;
 	private final TermCountSize _termCountSize;
-	
+	public boolean fixedterms = false;
 	public FacetDataCache(BigSegmentedArray orderArray,TermValueList<T> valArray,int[] freqs,int[] minIDs,int[] maxIDs,TermCountSize termCountSize)
 	{
 		this.orderArray=orderArray;
@@ -56,6 +57,11 @@ public class FacetDataCache<T> implements Serializable {
 	  this.freqs = null;
 	  _termCountSize = TermCountSize.large;
 	}
+  public FacetDataCache(boolean fixedterms)
+  {
+    this();
+    this.fixedterms = fixedterms;
+  }
 	
 	private final static BigSegmentedArray newInstance(TermCountSize termCountSize,int maxDoc){
 		if (termCountSize == TermCountSize.small){
@@ -66,9 +72,91 @@ public class FacetDataCache<T> implements Serializable {
 		}
 		else return new BigIntArray(maxDoc);
 	}
-	
+	public void load(String fieldName,IndexReader reader, TermValueList<T> list) throws IOException
+	{
+	  String field = fieldName.intern();
+	  int maxDoc = reader.maxDoc();
+
+	  BigSegmentedArray order = this.orderArray;
+	  if (order == null) // we want to reuse the memory
+	  {
+	    order = newInstance(_termCountSize, maxDoc);
+	  } else
+	  {
+	    order.ensureCapacity(maxDoc); // no need to fill to 0, we are reseting the
+	    // data anyway
+	  }
+	  this.orderArray = order;
+
+	  this.freqs = new int[list.size()];
+	  this.minIDs = new int[list.size()];
+	  Arrays.fill(this.minIDs, Integer.MAX_VALUE);
+	  this.maxIDs = new int[list.size()];
+	  int length = maxDoc + 1;
+	  TermDocs termDocs = reader.termDocs();
+	  TermEnum termEnum = reader.terms(new Term(field, ""));
+	  int t = 0; // current term number
+
+	  this.minIDs[0] = -1;
+	  this.maxIDs[0] = -1;
+	  this.freqs[0] = 0;
+	  // int df = 0;
+	  t++;
+	  try
+	  {
+	    do
+	    {
+	      Term term = termEnum.term();
+	      if (term == null || term.field() != field)
+	        break;
+
+	      // store term text
+	      // we expect that there is at most one term per document
+	      t = list.indexOf(term.text());
+	      if (t<0)
+	      {
+	        logger.warn(term.text() + " is not in the given list or the list is not properly sorted.");
+	      } else
+	      {
+	        termDocs.seek(termEnum);
+	        // freqList.add(termEnum.docFreq()); // doesn't take into account
+	        // deldocs
+	        int minID = -1;
+	        int maxID = -1;
+	        int df = 0;
+	        if (termDocs.next())
+	        {
+	          df++;
+	          int docid = termDocs.doc();
+	          order.add(docid, t);
+	          minID = docid;
+	          while (termDocs.next())
+	          {
+	            df++;
+	            docid = termDocs.doc();
+	            order.add(docid, t);
+	          }
+	          maxID = docid;
+	        }
+	        this.freqs[t] = df;
+	        this.minIDs[t] = minID;
+	        this.maxIDs[t] = maxID;
+	      }
+	    } while (termEnum.next());
+	  } finally
+	  {
+	    termDocs.close();
+	    termEnum.close();
+	  }
+	  this.valArray = list;
+	}
 	public void load(String fieldName,IndexReader reader,TermListFactory<T> listFactory) throws IOException
   {
+	  if (this.fixedterms)
+	  {
+	    load(fieldName, reader, listFactory.createTermList());
+	    return;
+	  }
     String field = fieldName.intern();
     int maxDoc = reader.maxDoc();
 

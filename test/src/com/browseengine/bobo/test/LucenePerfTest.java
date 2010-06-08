@@ -39,6 +39,9 @@ import com.browseengine.bobo.api.FacetSpec;
 import com.browseengine.bobo.api.FacetSpec.FacetSortSpec;
 import com.browseengine.bobo.facets.FacetHandler;
 import com.browseengine.bobo.facets.data.PredefinedTermListFactory;
+import com.browseengine.bobo.facets.data.TermIntList;
+import com.browseengine.bobo.facets.data.TermListFactory;
+import com.browseengine.bobo.facets.data.TermValueList;
 import com.browseengine.bobo.facets.impl.DefaultFacetCountCollector;
 import com.browseengine.bobo.facets.impl.MultiValueFacetHandler;
 import com.browseengine.bobo.facets.impl.SimpleFacetHandler;
@@ -54,6 +57,7 @@ public class LucenePerfTest
   static final Random rand = new Random(987129);
 
   public static int inNumItr = 10;
+  public static boolean fixedterms = !true;
   /**
    * @param args
    * @throws IOException
@@ -82,13 +86,23 @@ public class LucenePerfTest
 //    }
 //    words = wordlist.toArray(new String[1]);
     System.out.println("load the words " + words.length);
-
     final Collection<FacetHandler<?>> facetHandlers = new ArrayList<FacetHandler<?>>();
-    facetHandlers.add(new MultiValueFacetHandler("ccid", new PredefinedTermListFactory<Integer>(Integer.class,"0000000000")));
-//    facetHandlers.add(new MultiValueFacetHandler("pcid", new PredefinedTermListFactory<Integer>(Integer.class,"0000000000")));
+    if (fixedterms)
+    {
+      final TermIntList ccidlist = (TermIntList) getList(reader, new PredefinedTermListFactory<Integer>(Integer.class,"0000000000"), "ccid");
+      final TermIntList pcidlist = (TermIntList) getList(reader, new PredefinedTermListFactory<Integer>(Integer.class,"0000000000"), "pcid");
+      final TermIntList edulist = (TermIntList) getList(reader, new PredefinedTermListFactory<Integer>(Integer.class,"0000000000"), "education_id");
+      facetHandlers.add(new MultiValueFacetHandler("ccid", getTermListFactory(ccidlist), fixedterms));
+      facetHandlers.add(new MultiValueFacetHandler("pcid", getTermListFactory(pcidlist), fixedterms));
+      facetHandlers.add(new MultiValueFacetHandler("education_id", getTermListFactory(edulist), fixedterms));
+    } else
+    {
+      facetHandlers.add(new MultiValueFacetHandler("ccid", new PredefinedTermListFactory<Integer>(Integer.class,"0000000000")));
+      facetHandlers.add(new MultiValueFacetHandler("pcid", new PredefinedTermListFactory<Integer>(Integer.class,"0000000000")));
+      facetHandlers.add(new MultiValueFacetHandler("education_id", new PredefinedTermListFactory<Integer>(Integer.class,"0000000000")));
+    }
     facetHandlers.add(new SimpleFacetHandler("industry", new PredefinedTermListFactory<Integer>(Integer.class,"0000000000")));
     facetHandlers.add(new SimpleFacetHandler("geo_region"));
-    facetHandlers.add(new MultiValueFacetHandler("education_id", new PredefinedTermListFactory<Integer>(Integer.class,"0000000000")));
     long tgetinstance = System.currentTimeMillis();
     final BoboIndexReader boboReader = BoboIndexReader.getInstance(reader, facetHandlers , null);
     System.out.println("getInstanceTime: " + (System.currentTimeMillis() - tgetinstance));
@@ -98,7 +112,7 @@ public class LucenePerfTest
       doSearch(5, boboReader, facetHandlers);
     }
     long start = System.currentTimeMillis();
-    int numThread = 2;
+    int numThread = 4;
     System.out.println(numThread+" threads");
     int numItr = 1000;
     long ttime = 0;
@@ -108,7 +122,7 @@ public class LucenePerfTest
       ttime += time;
       if (x % 20 == 0)
       {
-        System.out.println("total time: " + ttime);
+        System.out.println(numThread+" threads total time: " + ttime + "  fix terms:"+fixedterms);
         System.out.println("average time: " + ((float)ttime/(float)x/(float)numThread/(float)inNumItr));
       }
     }
@@ -181,13 +195,13 @@ public class LucenePerfTest
       FacetSpec spec = new FacetSpec();
       spec.setMaxCount(50);
       spec.setOrderBy(FacetSortSpec.OrderHitsDesc);
-//      req.setFacetSpec("ccid", spec);
-//      req.setFacetSpec("pcid", spec);
-//      req.setFacetSpec("education_id", spec);
-      req.setFacetSpec("geo_region", spec);
+      req.setFacetSpec("ccid", spec);
+      req.setFacetSpec("pcid", spec);
+      req.setFacetSpec("education_id", spec);
+//      req.setFacetSpec("geo_region", spec);
 //      req.setFacetSpec("industry", spec);
       String qstr = words[nextInt()];
-//      qstr = "project manager";
+      qstr = "project manager";
       String[] terms = qstr.split(" ");
       BooleanQuery q = new BooleanQuery();
     for(String s : terms)
@@ -212,7 +226,7 @@ public class LucenePerfTest
         tf0 = System.currentTimeMillis();
         List<BrowseFacet> facets = fa.getFacets();
         tf1=System.currentTimeMillis();
-        System.out.println(tf1 - tf0 + "\tfacet "+entry.getKey()+" get time\tsize: " + facets.size());
+//        System.out.println(tf1 - tf0 + "\tfacet "+entry.getKey()+" get time \tsize: " + facets.size() + "   " + fa.getClass().getSimpleName());
 //        System.out.println(Arrays.toString(facets.toArray()));
         fa.close();
       }
@@ -241,7 +255,7 @@ public class LucenePerfTest
     File file = new File("/Users/xgu/lucene29test/keywords");
     try
     {
-      FileInputStream fis = new FileInputStream("/Users/xgu/lucene29test/bbb");
+      FileInputStream fis = new FileInputStream("/Users/xgu/lucene29test/keywords");
       InputStreamReader isr = new InputStreamReader(fis);
       LineNumberReader reader = new LineNumberReader(isr);
       String line;
@@ -263,5 +277,47 @@ public class LucenePerfTest
     int ret = ii;
     ii = (ret+1) % words.length;
     return ret;
+  }
+  public static <T> TermValueList<T> getList(IndexReader reader, PredefinedTermListFactory<T> listFactory, String fieldName)
+  {
+    TermValueList<T> list = listFactory.createTermList();
+    list.add(null);
+    try
+    {
+      TermDocs tdoc = reader.termDocs();
+      TermEnum tenum = reader.terms(new Term(fieldName, ""));
+      do
+      {
+        Term term = tenum.term();
+        if (term == null || !fieldName.equals(term.field()))
+          break;
+        String val = term.text();
+        list.add(val);
+      } while (tenum.next());
+    } catch (IOException e)
+    {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+    list.seal();
+    return list;
+  }
+  public static <T> TermListFactory<T> getTermListFactory(final TermValueList<T> list)
+  {
+    return new TermListFactory(){
+
+      @Override
+      public TermValueList createTermList()
+      {
+        // TODO Auto-generated method stub
+        return list;
+      }
+
+      @Override
+      public Class getType()
+      {
+        // TODO Auto-generated method stub
+        return list.getType();
+      }};
   }
 }

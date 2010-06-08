@@ -44,6 +44,11 @@ public class MultiValueFacetDataCache<T> extends FacetDataCache<T>
     super();
     _nestedArray = new BigNestedIntArray();
   }
+  public MultiValueFacetDataCache(boolean fixedterms)
+  {
+    this();
+    this.fixedterms = fixedterms;
+  }
   
   public void setMaxItems(int maxItems)
   {
@@ -67,6 +72,12 @@ public class MultiValueFacetDataCache<T> extends FacetDataCache<T>
    */
   public void load(String fieldName, IndexReader reader, TermListFactory<T> listFactory, WorkArea workArea) throws IOException
   {
+    System.out.println("xxxxxxxxxxxyyyyyyy" + fixedterms);
+    if (fixedterms)
+    {
+      load(fieldName, reader, listFactory.createTermList(), workArea);
+      return;
+    }
     long t0 = System.currentTimeMillis();
     int maxdoc = reader.maxDoc();
     BufferedLoader loader = getBufferedLoader(maxdoc, workArea);
@@ -172,7 +183,104 @@ public class MultiValueFacetDataCache<T> extends FacetDataCache<T>
     this.minIDs = minIDList.toIntArray();
     this.maxIDs = maxIDList.toIntArray();
   }
+  public void load(String fieldName, IndexReader reader, TermValueList<T> list, WorkArea workArea) throws IOException
+  {
+    long t0 = System.currentTimeMillis();
+    int maxdoc = reader.maxDoc();
+    BufferedLoader loader = getBufferedLoader(maxdoc, workArea);
 
+    TermEnum tenum = null;
+    TermDocs tdoc = null;
+    this.minIDs = new int[list.size()];
+    this.maxIDs = new int[list.size()];
+    this.freqs = new int[list.size()];
+
+    int t = 0; // current term number
+    this.minIDs[0] = -1;
+    this.maxIDs[0] = -1;
+    this.freqs[0] = 0;
+    
+    _overflow = false;
+    try
+    {
+      tdoc = reader.termDocs();
+      tenum = reader.terms(new Term(fieldName, ""));
+      if (tenum != null)
+      {
+        do
+        {
+          Term term = tenum.term();
+          if (term == null || !fieldName.equals(term.field()))
+            break;
+
+          String val = term.text();
+          t = list.indexOf(val);
+          // if (val!=null && val.length()>0){
+          if (val != null)
+          {
+
+            tdoc.seek(tenum);
+            //freqList.add(tenum.docFreq()); // removed because the df doesn't take into account the num of deletedDocs
+            int df = 0;
+            int minID = -1;
+            int maxID = -1;
+            if(tdoc.next())
+            {
+              df++;
+              int docid = tdoc.doc();
+              if(!loader.add(docid, t)) logOverflow(fieldName);
+              minID = docid;
+              while(tdoc.next())
+              {
+                df++;
+                docid = tdoc.doc();
+                if(!loader.add(docid, t)) logOverflow(fieldName);
+              }
+              maxID = docid;
+            }
+            this.freqs[t] = df;
+            this.minIDs[t] = minID;
+            this.maxIDs[t] = maxID;
+          }
+
+          t++;
+        }
+        while (tenum.next());
+      }
+    }
+    finally
+    {
+      try
+      {
+        if (tdoc != null)
+        {
+          tdoc.close();
+        }
+      }
+      finally
+      {
+        if (tenum != null)
+        {
+          tenum.close();
+        }
+      }
+    }
+
+    try
+    {
+      _nestedArray.load(maxdoc, loader);
+    }
+    catch (IOException e)
+    {
+      throw e;
+    }
+    catch (Exception e)
+    {
+      throw new RuntimeException("failed to load due to " + e.toString(), e);
+    }
+    
+    this.valArray = list;
+  }
   /**
    * loads multi-value facet data. This method uses the count payload to allocate storage before loading data.
    * @param fieldName
@@ -183,6 +291,7 @@ public class MultiValueFacetDataCache<T> extends FacetDataCache<T>
    */
   public void load(String fieldName, IndexReader reader, TermListFactory<T> listFactory, Term sizeTerm) throws IOException
   {
+    System.out.println("xxxxxxxxxxx");
     int maxdoc = reader.maxDoc();
     Loader loader = new AllocOnlyLoader(_maxItems, sizeTerm, reader);
     
@@ -286,7 +395,99 @@ public class MultiValueFacetDataCache<T> extends FacetDataCache<T>
     this.minIDs = minIDList.toIntArray();
     this.maxIDs = maxIDList.toIntArray();
   }
-  
+  public void load(String fieldName, IndexReader reader, TermValueList<T> list, Term sizeTerm) throws IOException
+  {
+    int maxdoc = reader.maxDoc();
+    Loader loader = new AllocOnlyLoader(_maxItems, sizeTerm, reader);
+    
+    try
+    {
+      _nestedArray.load(maxdoc, loader);
+    }
+    catch (IOException e)
+    {
+      throw e;
+    }
+    catch (Exception e)
+    {
+      throw new RuntimeException("failed to load due to " + e.toString(), e);
+    }
+    
+    TermEnum tenum = null;
+    TermDocs tdoc = null;
+    this.minIDs = new int[list.size()];
+    this.maxIDs = new int[list.size()];
+    this.freqs = new int[list.size()];
+
+    int t = 0; // current term number
+    this.minIDs[0] = -1;
+    this.maxIDs[0] = -1;
+    this.freqs[0] = 0;
+
+    _overflow = false;
+    try
+    {
+      tdoc = reader.termDocs();
+      tenum = reader.terms(new Term(fieldName, ""));
+      if (tenum != null)
+      {
+        do
+        {
+          Term term = tenum.term();
+          if(term == null || !fieldName.equals(term.field()))
+            break;
+          
+          String val = term.text();
+          t = list.indexOf(val);
+          if (val != null)
+          {
+            tdoc.seek(tenum);
+            //freqList.add(tenum.docFreq()); // removed because the df doesn't take into account the num of deletedDocs
+            int df = 0;
+            int minID = -1;
+            int maxID = -1;
+            if(tdoc.next())
+            {
+              df++;
+              int docid = tdoc.doc();
+              if (!_nestedArray.addData(docid, t)) logOverflow(fieldName);
+              minID = docid;
+              while(tdoc.next())
+              {
+                df++;
+                docid = tdoc.doc();
+                if(!_nestedArray.addData(docid, t)) logOverflow(fieldName);
+              }
+              maxID = docid;
+            }
+            this.freqs[t] = df;
+            this.minIDs[t] = minID;
+            this.maxIDs[t] = maxID;
+          }
+        }
+        while (tenum.next());
+      }
+    }
+    finally
+    {
+      try
+      {
+        if (tdoc != null)
+        {
+          tdoc.close();
+        }
+      }
+      finally
+      {
+        if (tenum != null)
+        {
+          tenum.close();
+        }
+      }
+    }
+    
+    this.valArray = list;
+  }
   private void logOverflow(String fieldName)
   {
     if (!_overflow)

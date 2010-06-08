@@ -360,11 +360,11 @@ public class BoboSubBrowser extends BoboSearcher2 implements Browsable
           LinkedList<FacetCountCollector> resultcollector=null;
           resultcollector = facetCollector._countCollectorList;
           if (resultcollector == null || resultcollector.size() == 0){
-        	  resultcollector = facetCollector._collectAllCollectorList;
+            resultcollector = facetCollector._collectAllCollectorList;
           }
           if (resultcollector!=null){
-        	FacetSpec fspec = req.getFacetSpec(name);
-        	assert fspec != null;
+            FacetSpec fspec = req.getFacetSpec(name);
+            assert fspec != null;
             if(resultcollector.size() == 1)
             {
               facetMap.put(name, resultcollector.get(0));             
@@ -375,9 +375,9 @@ public class BoboSubBrowser extends BoboSearcher2 implements Browsable
               for (FacetCountCollector fc : resultcollector){
                 finalList.add((FacetAccessible)fc);
               }
-        	  CombinedFacetAccessible combinedCollector = new CombinedFacetAccessible(fspec, finalList);
+              CombinedFacetAccessible combinedCollector = new CombinedFacetAccessible(fspec, finalList);
               facetMap.put(name, combinedCollector);
-        	}
+            }
           }
         }
       }

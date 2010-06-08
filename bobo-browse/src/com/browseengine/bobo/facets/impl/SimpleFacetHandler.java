@@ -31,6 +31,7 @@ public class SimpleFacetHandler extends FacetHandler<FacetDataCache> implements 
 	
 	private final TermListFactory _termListFactory;
 	private final String _indexFieldName;
+	private boolean fixedterms = false;
 	
 	public SimpleFacetHandler(String name,String indexFieldName,TermListFactory termListFactory)
 	{
@@ -49,10 +50,15 @@ public class SimpleFacetHandler extends FacetHandler<FacetDataCache> implements 
         this(name,name,null);
     }
 	
-	public SimpleFacetHandler(String name,String indexFieldName)
-	{
-		this(name,indexFieldName,null);
-	}
+  public SimpleFacetHandler(String name,String indexFieldName)
+  {
+    this(name,indexFieldName,null);
+  }
+  public SimpleFacetHandler(String name,String indexFieldName, boolean fixedterms)
+  {
+    this(name,indexFieldName);
+    this.fixedterms = fixedterms;
+  }
 	
 	@Override
 	public DocComparatorSource getDocComparatorSource() {
@@ -117,19 +123,32 @@ public class SimpleFacetHandler extends FacetHandler<FacetDataCache> implements 
   @Override
 	public FacetCountCollectorSource getFacetCountCollectorSource(final BrowseSelection sel,final FacetSpec ospec) {
 	  return new FacetCountCollectorSource(){
+	    SimpleFacetCountCollector collector = null;
 
 		@Override
 		public FacetCountCollector getFacetCountCollector(
 				BoboIndexReader reader, int docBase) {
-			FacetDataCache dataCache = SimpleFacetHandler.this.getFacetData(reader);
-			return new SimpleFacetCountCollector(_name,dataCache,docBase,sel,ospec);
+		  FacetDataCache dataCache = SimpleFacetHandler.this.getFacetData(reader);
+		  if (fixedterms)
+		  {
+		    if (collector == null)
+		    {
+		      collector = new SimpleFacetCountCollector(_name,dataCache,docBase,sel,ospec);
+		    }
+		    System.out.println("reuse colletor simple");
+		    collector.set_dataCache(dataCache);
+		  } else
+		  {
+		    collector = new SimpleFacetCountCollector(_name,dataCache,docBase,sel,ospec);
+		  }
+		  return collector;
 		}  
 	  };
 	}
 
 	@Override
 	public FacetDataCache load(BoboIndexReader reader) throws IOException {
-		FacetDataCache dataCache = new FacetDataCache();
+		FacetDataCache dataCache = new FacetDataCache(this.fixedterms);
 		dataCache.load(_indexFieldName, reader, _termListFactory);
 		return dataCache;
 	}

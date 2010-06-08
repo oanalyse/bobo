@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.floats.FloatList;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -20,6 +21,7 @@ import com.browseengine.bobo.api.BoboIndexReader.WorkArea;
 import com.browseengine.bobo.facets.FacetCountCollector;
 import com.browseengine.bobo.facets.FacetCountCollectorSource;
 import com.browseengine.bobo.facets.FacetHandler;
+import com.browseengine.bobo.facets.data.FacetDataCache;
 import com.browseengine.bobo.facets.data.MultiValueFacetDataCache;
 import com.browseengine.bobo.facets.data.TermListFactory;
 import com.browseengine.bobo.facets.filter.EmptyFilter;
@@ -37,7 +39,7 @@ import com.browseengine.bobo.util.BigNestedIntArray;
 public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCache> implements FacetScoreable 
 {
   private static Logger logger = Logger.getLogger(MultiValueFacetHandler.class);
-
+  private boolean fixedterms = false;
   @Override
   public DocComparatorSource getDocComparatorSource() 
   {
@@ -63,7 +65,15 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
     _termListFactory = termListFactory;
     _sizePayloadTerm = sizePayloadTerm;
   }
-  
+  public  MultiValueFacetHandler(String name, 
+      String indexFieldName, 
+      TermListFactory termListFactory, 
+      Term sizePayloadTerm,
+      Set<String> depends, boolean fixedterms)
+  {
+    this(name, indexFieldName, termListFactory, sizePayloadTerm);
+    this.fixedterms = fixedterms;
+  }
   public MultiValueFacetHandler(String name, String indexFieldName, TermListFactory termListFactory, Term sizePayloadTerm)
   {
     this(name, indexFieldName, termListFactory, sizePayloadTerm, null);
@@ -82,6 +92,11 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
   public MultiValueFacetHandler(String name, TermListFactory termListFactory)
   {
     this(name, name, termListFactory);
+  }
+  public MultiValueFacetHandler(String name, TermListFactory termListFactory, boolean fixedterms)
+  {
+    this(name, name, termListFactory);
+    this.fixedterms = fixedterms;
   }
 
   public MultiValueFacetHandler(String name, String indexFieldName)
@@ -117,17 +132,48 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
 	MultiValueFacetDataCache dataCache = getFacetData(reader);
     return dataCache._nestedArray.getRawData(id, dataCache.valArray);
   }
-
+public static ThreadLocal<Integer> based = new ThreadLocal<Integer>()
+{
+  protected Integer initialValue()
+  {
+    return -1;
+  }
+};
+public static ThreadLocal<HashMap<String,MultiValueFacetCountCollector>> mcollector = new ThreadLocal<HashMap<String,MultiValueFacetCountCollector>>()
+{
+  protected HashMap<String,MultiValueFacetCountCollector> initialValue()
+  {
+    return new HashMap<String,MultiValueFacetCountCollector>();
+  }
+};
 
   @Override
   public FacetCountCollectorSource getFacetCountCollectorSource(final BrowseSelection sel, final FacetSpec ospec){
 	return new FacetCountCollectorSource(){
-
 		@Override
 		public FacetCountCollector getFacetCountCollector(
 				BoboIndexReader reader, int docBase) {
 			MultiValueFacetDataCache dataCache = MultiValueFacetHandler.this.getFacetData(reader);
-			return new MultiValueFacetCountCollector(_name,dataCache,docBase,sel, ospec);
+      int db = based.get();
+      HashMap<String,MultiValueFacetCountCollector> map = mcollector.get();
+      if (docBase<db) map.clear();
+      based.set(docBase);
+	    MultiValueFacetCountCollector collector = map.get(_name);
+			if (fixedterms)
+			{
+			  if ((collector == null) )
+			  {
+			    collector = new MultiValueFacetCountCollector(_name,dataCache,docBase,sel, ospec);
+			    map.put(_name,collector);
+			  } else
+			  {
+			    collector.set_dataCache(dataCache);
+			  }
+			} else
+			{
+			  collector = new MultiValueFacetCountCollector(_name,dataCache,docBase,sel, ospec);
+			}
+			return collector;
 		}
 	};
     
@@ -142,7 +188,7 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
   @Override
   public MultiValueFacetDataCache load(BoboIndexReader reader, WorkArea workArea) throws IOException
   {
-	MultiValueFacetDataCache dataCache = new MultiValueFacetDataCache();
+	MultiValueFacetDataCache dataCache = new MultiValueFacetDataCache(this.fixedterms);
     
 	dataCache.setMaxItems(_maxItems);
 
@@ -255,7 +301,7 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
 
   public static final class MultiValueFacetCountCollector extends DefaultFacetCountCollector
   {
-    public final BigNestedIntArray _array;
+    public BigNestedIntArray _array;
     MultiValueFacetCountCollector(String name,
     							  MultiValueFacetDataCache dataCache,
     							  int docBase,
@@ -264,6 +310,16 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
                                   {
       super(name,dataCache,docBase,sel,ospec);
       _array = dataCache._nestedArray;
+    }
+    public FacetDataCache get_dataCache()
+    {
+      return _dataCache;
+    }
+
+    public void set_dataCache(FacetDataCache dataCache)
+    {
+      _dataCache = dataCache;
+      _array = ((MultiValueFacetDataCache)dataCache)._nestedArray;
     }
 
     @Override
