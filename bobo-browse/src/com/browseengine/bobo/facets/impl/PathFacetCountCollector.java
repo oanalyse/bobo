@@ -10,6 +10,7 @@ import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
 
+import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.api.BrowseFacet;
 import com.browseengine.bobo.api.BrowseSelection;
 import com.browseengine.bobo.api.ComparatorFactory;
@@ -40,15 +41,17 @@ public class PathFacetCountCollector implements FacetCountCollector
 	private char[] _sepArray;
 	private int _patStart;
 	private int _patEnd;
+	private BoboIndexReader _reader;
 	
-	PathFacetCountCollector(String name,String sep,BrowseSelection sel,FacetSpec ospec,FacetDataCache dataCache)
+	PathFacetCountCollector(String name, BoboIndexReader reader, String sep,BrowseSelection sel,FacetSpec ospec,FacetDataCache dataCache)
 	{
+	  _reader = reader;
 		_sel = sel;
 		_ospec=ospec;
 		_name = name;
-        _dataCache = dataCache;
-        _sep = sep;
-        _sepArray = sep.toCharArray();
+		_dataCache = dataCache;
+		_sep = sep;
+		_sepArray = sep.toCharArray();
 		_count=new int[_dataCache.freqs.length];
 		log.info(name +": " + _count.length);
 		_orderArray = _dataCache.orderArray;
@@ -69,6 +72,14 @@ public class PathFacetCountCollector implements FacetCountCollector
 		_patStart = 0;
 		_patEnd = 0;
 	}
+  public void setReader(BoboIndexReader reader)
+  {
+    _reader = reader;
+  }
+  public BoboIndexReader getReader()
+  {
+    return _reader;
+  }
 
 
 	public int[] getCountDistribution()
@@ -87,7 +98,7 @@ public class PathFacetCountCollector implements FacetCountCollector
 	
 	public void collectAll()
 	{
-	    _count = _dataCache.freqs; 
+	    _count = _dataCache.freqs;
 	}
 	
 	public BrowseFacet getFacet(String value)

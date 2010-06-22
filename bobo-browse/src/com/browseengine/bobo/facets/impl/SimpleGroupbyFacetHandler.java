@@ -10,7 +10,9 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Properties;
 
+import org.apache.log4j.Logger;
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.ScoreDoc;
 
 import com.browseengine.bobo.api.BoboIndexReader;
@@ -33,6 +35,7 @@ import com.browseengine.bobo.util.IntBoundedPriorityQueue;
 import com.browseengine.bobo.util.IntBoundedPriorityQueue.IntComparator;
 
 public class SimpleGroupbyFacetHandler extends FacetHandler<FacetDataNone> {
+  private static Logger logger = Logger.getLogger(SimpleGroupbyFacetHandler.class.getName());
   private final LinkedHashSet<String> _fieldsSet;
   private ArrayList<SimpleFacetHandler> _facetHandlers;
   private Map<String,SimpleFacetHandler> _facetHandlerMap;
@@ -187,6 +190,7 @@ public class SimpleGroupbyFacetHandler extends FacetHandler<FacetDataNone> {
     private final int[] _lens;
     private final int _maxdoc;
     private final String _sep;
+    private BoboIndexReader _reader;
 
     public GroupbyFacetCountCollector(String name,FacetSpec fspec,DefaultFacetCountCollector[] subcollectors,int maxdoc,String sep){
       _name = name;
@@ -204,6 +208,15 @@ public class SimpleGroupbyFacetHandler extends FacetHandler<FacetDataNone> {
       _maxdoc = maxdoc;
     }
 
+    public void setReader(BoboIndexReader reader)
+    {
+      _reader = reader;
+    }
+    public BoboIndexReader getReader()
+    {
+      return _reader;
+    }
+
     final public void collect(int docid) {
       int idx = 0;
       int i=0;
@@ -215,10 +228,37 @@ public class SimpleGroupbyFacetHandler extends FacetHandler<FacetDataNone> {
       _count[idx]++;
     }
 
-    public void collectAll() {
-      for (int i = 0; i < _maxdoc; ++i){
+    public void collectAll()
+    {
+      for (int i = 0; i < _maxdoc; ++i)
+      {
         collect(i);
       }
+      DocIdSetIterator itr;
+      try
+      {
+        itr = _reader.getDeleteSet().iterator();
+        int doc;
+        while((doc = itr.nextDoc())!=DocIdSetIterator.NO_MORE_DOCS)
+        {
+          anticollect(doc);
+        }
+      } catch (IOException e)
+      {
+        logger.error(e);
+      }
+    }
+
+    final private void anticollect(int docid)
+    {
+      int idx = 0;
+      int i=0;
+      int segsize=_countlength;
+      for (DefaultFacetCountCollector subcollector : _subcollectors){
+        segsize = segsize / _lens[i++];
+        idx+=(subcollector._dataCache.orderArray.get(docid) * segsize);
+      }
+      _count[idx]--;
     }
 
     public int[] getCountDistribution() {

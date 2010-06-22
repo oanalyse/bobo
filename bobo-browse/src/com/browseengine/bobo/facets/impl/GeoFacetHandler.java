@@ -232,7 +232,7 @@ public class GeoFacetHandler extends FacetHandler<GeoFacetHandler.GeoFacetData> 
 			@Override
 			public FacetCountCollector getFacetCountCollector(BoboIndexReader reader, int docBase) {
 				GeoFacetData dataCache = getFacetData(reader);
-				return new GeoFacetCountCollector(_name, dataCache, docBase, fspec, ranges, _miles);
+				return new GeoFacetCountCollector(_name, reader, dataCache, docBase, fspec, ranges, _miles);
 			}		
 		};
 	}

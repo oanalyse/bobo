@@ -127,7 +127,7 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
 		public FacetCountCollector getFacetCountCollector(
 				BoboIndexReader reader, int docBase) {
 			MultiValueFacetDataCache dataCache = MultiValueFacetHandler.this.getFacetData(reader);
-			return new MultiValueFacetCountCollector(_name,dataCache,docBase,sel, ospec);
+			return new MultiValueFacetCountCollector(_name,reader,dataCache,docBase,sel, ospec);
 		}
 	};
     
@@ -257,12 +257,13 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
   {
     public final BigNestedIntArray _array;
     MultiValueFacetCountCollector(String name,
+        BoboIndexReader reader,
     							  MultiValueFacetDataCache dataCache,
     							  int docBase,
     							  BrowseSelection sel,
                                   FacetSpec ospec)
                                   {
-      super(name,dataCache,docBase,sel,ospec);
+      super(name,reader,dataCache,docBase,sel,ospec);
       _array = dataCache._nestedArray;
     }
 
@@ -270,12 +271,6 @@ public class MultiValueFacetHandler extends FacetHandler<MultiValueFacetDataCach
     public final void collect(int docid) 
     {
       _array.countNoReturn(docid, _count);
-    }
-
-    @Override
-    public final void collectAll()
-    {
-      _count = _dataCache.freqs;
     }
   }
 }

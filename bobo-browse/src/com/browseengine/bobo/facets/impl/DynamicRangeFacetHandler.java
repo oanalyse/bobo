@@ -83,7 +83,7 @@ public abstract class DynamicRangeFacetHandler extends RuntimeFacetHandler<Facet
 		@Override
 		public FacetCountCollector getFacetCountCollector(BoboIndexReader reader, int docBase) {
 		    FacetDataCache dataCache = _dataFacetHandler.getFacetData(reader);
-		    return new DynamicRangeFacetCountCollector(getName(), dataCache, docBase, fspec, list);
+		    return new DynamicRangeFacetCountCollector(getName(),reader, dataCache, docBase, fspec, list);
 		}
     };
   }
@@ -115,9 +115,9 @@ public abstract class DynamicRangeFacetHandler extends RuntimeFacetHandler<Facet
   
   private class DynamicRangeFacetCountCollector extends RangeFacetCountCollector
   {
-    DynamicRangeFacetCountCollector(String name, FacetDataCache dataCache,int docBase, FacetSpec fspec, List<String> predefinedList)
+    DynamicRangeFacetCountCollector(String name, BoboIndexReader reader, FacetDataCache dataCache,int docBase, FacetSpec fspec, List<String> predefinedList)
     {
-      super(name,dataCache,docBase,fspec,predefinedList);
+      super(name,reader,dataCache,docBase,fspec,predefinedList);
     }
 
     @Override

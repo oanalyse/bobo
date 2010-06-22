@@ -291,10 +291,10 @@ public class PathFacetHandler extends FacetHandler<FacetDataCache>
 					int docBase) {
 				FacetDataCache dataCache = PathFacetHandler.this.getFacetData(reader);
 				if (_multiValue){
-					return new MultiValuedPathFacetCountCollector(_name, _separator, sel, ospec,dataCache);
+					return new MultiValuedPathFacetCountCollector(_name,reader, _separator, sel, ospec,dataCache);
 				}
 				else{
-					return new PathFacetCountCollector(_name,_separator,sel,ospec,dataCache);
+					return new PathFacetCountCollector(_name,reader,_separator,sel,ospec,dataCache);
 				}
 			}
 		};

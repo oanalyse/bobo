@@ -176,7 +176,7 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
 			public FacetCountCollector getFacetCountCollector(BoboIndexReader reader,
 					int docBase) {
 				final FacetDataCache dataCache = CompactMultiValueFacetHandler.this.getFacetData(reader);
-				return new CompactMultiValueFacetCountCollector(_name,sel,dataCache,docBase,ospec);
+				return new CompactMultiValueFacetCountCollector(_name,reader,sel,dataCache,docBase,ospec);
 			}
 		};
 	}
@@ -356,11 +356,11 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
 	  private boolean _aggregated = false;
 	  
 	  
-	  CompactMultiValueFacetCountCollector(String name,BrowseSelection sel,
+	  CompactMultiValueFacetCountCollector(String name,BoboIndexReader reader,BrowseSelection sel,
 	                                       FacetDataCache dataCache,int docBase,
 	                                       FacetSpec ospec)
 	                                       {
-	    super(name,dataCache,docBase,sel,ospec);
+	    super(name,reader,dataCache,docBase,sel,ospec);
 	    _array = _dataCache.orderArray;
 	  }
 	  
@@ -368,7 +368,7 @@ public class CompactMultiValueFacetHandler extends FacetHandler<FacetDataCache> 
 	  @Override
 	  public final void collectAll()
 	  {
-	    _count = _dataCache.freqs;
+	    super.collectAll();
 	    _aggregated = true;
 	  }
 	  

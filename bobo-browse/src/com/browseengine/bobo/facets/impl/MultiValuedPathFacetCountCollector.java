@@ -1,5 +1,6 @@
 package com.browseengine.bobo.facets.impl;
 
+import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.api.BrowseSelection;
 import com.browseengine.bobo.api.FacetSpec;
 import com.browseengine.bobo.facets.data.FacetDataCache;
@@ -10,9 +11,9 @@ public class MultiValuedPathFacetCountCollector extends PathFacetCountCollector 
 
     private final BigNestedIntArray _array;
     
-	public MultiValuedPathFacetCountCollector(String name, String sep,
+	public MultiValuedPathFacetCountCollector(String name, BoboIndexReader reader, String sep,
 			BrowseSelection sel, FacetSpec ospec, FacetDataCache dataCache) {
-		super(name, sep, sel, ospec, dataCache);
+		super(name,reader, sep, sel, ospec, dataCache);
 		_array = ((MultiValueFacetDataCache)(dataCache))._nestedArray;
 	}
 

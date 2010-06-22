@@ -137,6 +137,14 @@ public class HistogramFacetHandler<T extends Number> extends RuntimeFacetHandler
       _count = new int[countArraySize()];
     }
     
+    public void setReader(BoboIndexReader reader)
+    {
+      _baseCollector.setReader(reader);
+    }
+    public BoboIndexReader getReader()
+    {
+      return _baseCollector.getReader();
+    }
     private int countArraySize()
     {
       if(_start instanceof Long)

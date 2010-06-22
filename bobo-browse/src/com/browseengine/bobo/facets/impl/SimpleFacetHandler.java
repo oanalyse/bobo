@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import org.apache.log4j.Logger;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
 
 import com.browseengine.bobo.api.BoboIndexReader;
@@ -122,7 +123,7 @@ public class SimpleFacetHandler extends FacetHandler<FacetDataCache> implements 
 		public FacetCountCollector getFacetCountCollector(
 				BoboIndexReader reader, int docBase) {
 			FacetDataCache dataCache = SimpleFacetHandler.this.getFacetData(reader);
-			return new SimpleFacetCountCollector(_name,dataCache,docBase,sel,ospec);
+			return new SimpleFacetCountCollector(_name,reader,dataCache,docBase,sel,ospec);
 		}  
 	  };
 	}
@@ -142,17 +143,13 @@ public class SimpleFacetHandler extends FacetHandler<FacetDataCache> implements 
 	
 	public static final class SimpleFacetCountCollector extends DefaultFacetCountCollector
 	{
-		public SimpleFacetCountCollector(String name,FacetDataCache dataCache,int docBase,BrowseSelection sel,FacetSpec ospec)
+		public SimpleFacetCountCollector(String name,BoboIndexReader reader, FacetDataCache dataCache,int docBase,BrowseSelection sel,FacetSpec ospec)
 		{
-		    super(name,dataCache,docBase,sel,ospec);
+		    super(name,reader,dataCache,docBase,sel,ospec);
 		}
 		
 		public final void collect(int docid) {
 			_count[_array.get(docid)]++;
-		}
-		
-		public final void collectAll() {
-		  _count = _dataCache.freqs;
 		}
 	}
 	

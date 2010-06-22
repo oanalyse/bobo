@@ -9,6 +9,7 @@ import java.util.List;
 
 import org.apache.log4j.Logger;
 
+import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.api.BrowseFacet;
 import com.browseengine.bobo.api.FacetIterator;
 import com.browseengine.bobo.api.FacetSpec;
@@ -38,8 +39,10 @@ public class GeoSimpleFacetCountCollector implements FacetCountCollector {
 	private FacetDataCache _longDataCache;
 	private int[][] _longPredefinedRangeIndexes;
 	private int _docBase;
+	private BoboIndexReader _reader;
 
-	protected GeoSimpleFacetCountCollector(String name, FacetDataCache latDataCache, FacetDataCache longDataCache, int docBase, FacetSpec spec, List<String> predefinedRanges) {
+	protected GeoSimpleFacetCountCollector(String name, BoboIndexReader reader, FacetDataCache latDataCache, FacetDataCache longDataCache, int docBase, FacetSpec spec, List<String> predefinedRanges) {
+	  _reader = reader;
 		_name = name;
 		_latDataCache = latDataCache;
 		_longDataCache = longDataCache;
@@ -69,6 +72,14 @@ public class GeoSimpleFacetCountCollector implements FacetCountCollector {
 		}
 	}
 	
+  public void setReader(BoboIndexReader reader)
+  {
+    _reader = reader;
+  }
+  public BoboIndexReader getReader()
+  {
+    return _reader;
+  }
 	/* (non-Javadoc)
 	 * @see com.browseengine.bobo.facets.FacetCountCollector#collect(int)
 	 */

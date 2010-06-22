@@ -1,14 +1,16 @@
 package com.browseengine.bobo.facets.impl;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
+import org.apache.lucene.search.DocIdSetIterator;
 
+import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.api.BrowseFacet;
 import com.browseengine.bobo.api.BrowseSelection;
 import com.browseengine.bobo.api.ComparatorFactory;
@@ -41,6 +43,7 @@ public abstract class DefaultFacetCountCollector implements FacetCountCollector
   private int _docBase;
   protected LinkedList<int[]> intarraylist = new LinkedList<int[]>();
   private Iterator _iterator;
+  protected BoboIndexReader _reader;
 
   protected static MemoryManager<int[]> intarraymgr = new MemoryManager<int[]>(new MemoryManager.Initializer<int[]>()
       {
@@ -63,9 +66,10 @@ public abstract class DefaultFacetCountCollector implements FacetCountCollector
 
       });
 
-  public DefaultFacetCountCollector(String name,FacetDataCache dataCache,int docBase,
+  public DefaultFacetCountCollector(String name, BoboIndexReader reader, FacetDataCache dataCache,int docBase,
       BrowseSelection sel,FacetSpec ospec)
   {
+    _reader = reader;
     _sel = sel;
     _ospec = ospec;
     _name = name;
@@ -83,6 +87,14 @@ public abstract class DefaultFacetCountCollector implements FacetCountCollector
     _array = _dataCache.orderArray;
     _docBase = docBase;
   }
+  public void setReader(BoboIndexReader reader)
+  {
+    _reader = reader;
+  }
+  public BoboIndexReader getReader()
+  {
+    return _reader;
+  }
 
   public String getName()
   {
@@ -91,7 +103,43 @@ public abstract class DefaultFacetCountCollector implements FacetCountCollector
 
   abstract public void collect(int docid);
 
-  abstract public void collectAll();
+  
+  public void collectAll()
+  {
+    _count = _dataCache.freqs;
+    _countlength = _count.length;
+    if (_reader==null || _reader.getDeleteSet()==null) return;
+    DocIdSetIterator itr;
+    try
+    {
+      itr = _reader.getDeleteSet().iterator();
+    } catch (IOException e)
+    {
+      log.error(e);
+      return;
+    }
+    for(int i=0; i<_countlength; i++)
+    {
+      _count[i]=-_count[i];
+    }
+    int doc;
+    try
+    {
+      while((doc = itr.nextDoc())!=DocIdSetIterator.NO_MORE_DOCS)
+      {
+        collect(doc);
+      }
+    } catch (IOException e)
+    {
+      log.error(e);
+    } finally
+    {
+      for(int i=0; i<_countlength; i++)
+      {
+        _count[i]=-_count[i];
+      }
+    }
+  }
 
   public BrowseFacet getFacet(String value)
   {

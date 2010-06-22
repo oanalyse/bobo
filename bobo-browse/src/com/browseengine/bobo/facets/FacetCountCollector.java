@@ -3,6 +3,7 @@ package com.browseengine.bobo.facets;
 import java.util.LinkedList;
 import java.util.List;
 
+import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.api.BrowseFacet;
 import com.browseengine.bobo.api.FacetAccessible;
 
@@ -38,5 +39,13 @@ public interface FacetCountCollector extends FacetAccessible
 	 * Empty facet list. 
 	 */
 	public static List<BrowseFacet> EMPTY_FACET_LIST = new LinkedList<BrowseFacet>();
+	/**
+	 * Set the supporting BoboIndexReader
+	 */
+	public void setReader(BoboIndexReader reader);
 
+  /**
+   * Get the supporting BoboIndexReader
+   */
+  public BoboIndexReader getReader();
 }

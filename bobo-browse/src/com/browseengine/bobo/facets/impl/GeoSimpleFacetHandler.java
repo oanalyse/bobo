@@ -96,7 +96,7 @@ public abstract class GeoSimpleFacetHandler extends RuntimeFacetHandler<FacetDat
 					int docBase) {
 				FacetDataCache latDataCache = _latFacetHandler.getFacetData(reader);
 				FacetDataCache longDataCache = _longFacetHandler.getFacetData(reader);
-				return new GeoSimpleFacetCountCollector(_name, latDataCache, longDataCache, docBase, fspec, list);
+				return new GeoSimpleFacetCountCollector(_name,reader, latDataCache, longDataCache, docBase, fspec, list);
 			}
 		};
 		

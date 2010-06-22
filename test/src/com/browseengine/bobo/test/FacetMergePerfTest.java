@@ -57,7 +57,7 @@ public class FacetMergePerfTest {
 	
 	static FacetAccessible buildSubAccessible(String name,int segment,FacetSpec fspec){
 		
-		SimpleFacetCountCollector collector = new SimpleFacetCountCollector(name,makeFacetDataCache(),numDocsPerSeg*segment,null,fspec);
+		SimpleFacetCountCollector collector = new SimpleFacetCountCollector(name,null,makeFacetDataCache(),numDocsPerSeg*segment,null,fspec);
 		collector.collectAll();
 		return collector;
 	}

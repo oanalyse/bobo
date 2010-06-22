@@ -146,7 +146,7 @@ public class RangeFacetHandler extends FacetHandler<FacetDataCache>{
 		public FacetCountCollector getFacetCountCollector(BoboIndexReader reader,
 				int docBase) {
 			FacetDataCache dataCache = getFacetData(reader);
-			return new RangeFacetCountCollector(_name,dataCache,docBase,ospec,_predefinedRanges);
+			return new RangeFacetCountCollector(_name,reader,dataCache,docBase,ospec,_predefinedRanges);
 		}
 	};
     

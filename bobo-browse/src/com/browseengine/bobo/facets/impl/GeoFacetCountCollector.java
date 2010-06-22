@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.api.BrowseFacet;
 import com.browseengine.bobo.api.FacetIterator;
 import com.browseengine.bobo.api.FacetSpec;
@@ -36,6 +37,7 @@ public class GeoFacetCountCollector implements FacetCountCollector {
 	private BigFloatArray _zvals;
     // variable to specify if the geo distance calculations are in miles. Default is miles
     private boolean _miles;
+  private BoboIndexReader _reader;
 	
 	public static class GeoRange {
 		private final float _lat;
@@ -79,8 +81,9 @@ public class GeoFacetCountCollector implements FacetCountCollector {
 	 * @param predefinedRanges	List of ranges, where each range looks like <lat, lon: rad>
 	 * @param miles        variable to specify if the geo distance calculations are in miles. False indicates distance calculation is in kilometers
 	 */
-	protected GeoFacetCountCollector(String name, GeoFacetData dataCache,
+	protected GeoFacetCountCollector(String name, BoboIndexReader reader, GeoFacetData dataCache,
 			int docBase, FacetSpec fspec, List<String> predefinedRanges, boolean miles) {
+	  _reader = reader;
 		_name = name;
 		_dataCache = dataCache;
 		_xvals = dataCache.get_xValArray();
@@ -100,6 +103,14 @@ public class GeoFacetCountCollector implements FacetCountCollector {
 		}
 		_miles = miles;
 	}
+  public void setReader(BoboIndexReader reader)
+  {
+    _reader = reader;
+  }
+  public BoboIndexReader getReader()
+  {
+    return _reader;
+  }
 
 	/**
 	 * @param docid The docid for which the facet counts are to be calculated

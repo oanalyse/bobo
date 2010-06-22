@@ -5,6 +5,8 @@ import java.util.Collection;
 import java.util.List;
 
 import org.apache.log4j.Logger;
+import org.apache.lucene.search.DocIdSet;
+import org.apache.lucene.search.DocIdSetIterator;
 
 import proj.zoie.api.ZoieIndexReader;
 import proj.zoie.api.indexing.IndexReaderDecorator;
@@ -66,4 +68,10 @@ public class BoboIndexReaderDecorator implements IndexReaderDecorator<BoboIndexR
 		reader.rewrap(newReader);
 		return reader;
 	}
+
+  @Override
+  public void setDeleteSet(BoboIndexReader reader, DocIdSet deleteSet)
+  {
+    reader.setDeleteSet(deleteSet);
+  }
 }

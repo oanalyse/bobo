@@ -49,6 +49,8 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.MultiReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.TermEnum;
+import org.apache.lucene.search.DocIdSet;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.store.Directory;
@@ -81,6 +83,14 @@ public class BoboIndexReader extends FilterIndexReader
   protected int[] _starts = null;
   
   private final Map<String,Object> _facetDataMap = new HashMap<String,Object>();
+  /**
+   * The following delete set is used for making corrections to collectAll method for facet counting.
+   * For the sake of performance, we cache FacetData and deletions may not reflect in the frequency
+   * array that is used for collectAll. In order for collectAll to return correct counts, we may need
+   * to do additional filtering using the delete set, which takes much less time to go through than
+   * invoking collect() method on every docID.
+   */
+  private ThreadLocal<DocIdSet> _deleteSet = new ThreadLocal<DocIdSet>();
   private final ThreadLocal<Map<String,Object>> _runtimeFacetDataMap = new ThreadLocal<Map<String,Object>>()
   {
     protected Map<String,Object> initialValue() { return new HashMap<String,Object>(); }
@@ -645,6 +655,24 @@ public class BoboIndexReader extends FilterIndexReader
       }
     }
     return hi;
+  }
+
+  /**
+   * set the ThreadLocal delete set for collectAll
+   * @param _deleteSet the _deleteSet to set
+   */
+  public void setDeleteSet(DocIdSet deleteSet)
+  {
+    _deleteSet.set(deleteSet);
+  }
+
+  /**
+   * get the ThreadLocal delete set for collectAll
+   * @return the _deleteSet
+   */
+  public DocIdSet getDeleteSet()
+  {
+    return _deleteSet.get();
   }
 
   /**

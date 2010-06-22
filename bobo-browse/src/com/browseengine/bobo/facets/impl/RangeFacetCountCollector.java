@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.api.BrowseFacet;
 import com.browseengine.bobo.api.FacetIterator;
 import com.browseengine.bobo.api.FacetSpec;
@@ -24,9 +25,10 @@ public class RangeFacetCountCollector implements FacetCountCollector
   private final TermStringList _predefinedRanges;
   private int[][] _predefinedRangeIndexes;
   private int _docBase;
-  
-  protected RangeFacetCountCollector(String name,FacetDataCache dataCache,int docBase,FacetSpec ospec,List<String> predefinedRanges)
+  private BoboIndexReader _reader;
+  protected RangeFacetCountCollector(String name, BoboIndexReader reader, FacetDataCache dataCache,int docBase,FacetSpec ospec,List<String> predefinedRanges)
   {
+    _reader = reader;
     _name = name;
     _dataCache = dataCache;
     _countlength = _dataCache.freqs.length;
@@ -52,7 +54,15 @@ public class RangeFacetCountCollector implements FacetCountCollector
           }
       }
   }
-  
+  public void setReader(BoboIndexReader reader)
+  {
+    _reader = reader;
+  }
+  public BoboIndexReader getReader()
+  {
+    return _reader;
+  }
+
   /**
    * gets distribution of the value arrays. When predefined ranges are available, this returns distribution by predefined ranges.
    */
