@@ -43,7 +43,6 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.NumericRangeQuery;
-import org.apache.lucene.search.Query;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.RAMDirectory;
@@ -55,8 +54,9 @@ import com.browseengine.bobo.api.BrowseHit;
 import com.browseengine.bobo.api.BrowseRequest;
 import com.browseengine.bobo.api.BrowseResult;
 import com.browseengine.bobo.api.BrowseSelection;
+import com.browseengine.bobo.api.FacetSpec;
+import com.browseengine.bobo.api.FacetSpec.FacetSortSpec;
 import com.browseengine.bobo.facets.FacetHandler;
-import com.browseengine.bobo.facets.data.PredefinedTermListFactory;
 import com.browseengine.bobo.facets.impl.RangeFacetHandler;
 import com.browseengine.bobo.facets.impl.SimpleFacetHandler;
 import com.browseengine.bobo.index.BoboIndexer;
@@ -185,13 +185,23 @@ public class FacetNotValuesTest extends TestCase {
     br.setCount(20);
     br.setOffset(0);
 
+    FacetSpec facetSpec=new FacetSpec();
+    facetSpec.setMaxCount(100);
+    facetSpec.setMinHitCount(1);
+    facetSpec.setExpandSelection(true);
+    facetSpec.setOrderBy(FacetSortSpec.OrderValueAsc);
+    br.setFacetSpec("color", facetSpec);
+    br.setFacetSpec("id", facetSpec);
+    br.setFacetSpec("idRange", facetSpec);
+    
     BrowseSelection colorSel=new BrowseSelection("color");
     colorSel.addValue("red");
     br.addSelection(colorSel); 
-
+    
     BrowseSelection idSel=new BrowseSelection("id");
     idSel.addNotValue("0");
     br.addSelection(idSel);
+    
 
     BrowseResult result = null;
     BoboBrowser boboBrowser=null;
@@ -252,6 +262,16 @@ public class FacetNotValuesTest extends TestCase {
       br.setCount(20);
       br.setOffset(0);
 
+      FacetSpec facetSpec=new FacetSpec();
+      facetSpec.setMaxCount(100);
+      facetSpec.setMinHitCount(1);
+      facetSpec.setExpandSelection(true);
+      facetSpec.setOrderBy(FacetSortSpec.OrderValueAsc);
+      br.setFacetSpec("color", facetSpec);
+      br.setFacetSpec("id", facetSpec);
+      br.setFacetSpec("idRange", facetSpec);
+      
+      
       if(_idRanges==null) 
       {
         log.error("_idRanges cannot be null in order to test NOT on RangeFacetHandler");
@@ -269,10 +289,10 @@ public class FacetNotValuesTest extends TestCase {
       result = boboBrowser.browse(br);
       
       assertEquals(expectedHitNum,result.getNumHits());
-      for(int i=0; i<result.getNumHits();i++)
-      {
-        System.out.println(result.getHits()[i]);
-      }
+//      for(int i=0; i<result.getNumHits();i++)
+//      {
+//        System.out.println(result.getHits()[i]);
+//      }
 
     } catch (BrowseException e) {
       e.printStackTrace();
