@@ -3,6 +3,7 @@ package com.browseengine.bobo.test;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -37,9 +38,11 @@ import com.browseengine.bobo.api.BrowseResult;
 import com.browseengine.bobo.api.BrowseSelection;
 import com.browseengine.bobo.api.FacetSpec;
 import com.browseengine.bobo.api.MultiBoboBrowser;
+import com.browseengine.bobo.api.Pruner;
 import com.browseengine.bobo.api.FacetSpec.FacetSortSpec;
 import com.browseengine.bobo.facets.FacetHandler;
 import com.browseengine.bobo.facets.impl.SimpleFacetHandler;
+import com.browseengine.bobo.pruner.BoboIndexReaderTimeBasedPruner;
 import com.browseengine.bobo.readersort.BoboReaderTimeBasedComparator;
 
 /**
@@ -62,6 +65,8 @@ public class BrowserSortingPruningTest  extends TestCase
   private List<IndexReader> _subReaderList = null;
   private List<BoboIndexReader> _boboSubReaderList = null;
   
+  private Long _timeAfter;
+  
   public BrowserSortingPruningTest(String testName){
     super(testName);
     _documentSize = 100;
@@ -73,8 +78,8 @@ public class BrowserSortingPruningTest  extends TestCase
   }
  
   
-  public void testSortingByTime() throws Exception{
-    log.info("\n\n Starting test of testSoringByTime");
+  public void testPruningNoSortingWithOneMultiReader() throws Exception{
+    log.info("\n\n Starting test of testPruningNoSortingWithOneMultiReader");
     
     buildIndex();
     getAllReaders(true);
@@ -92,34 +97,28 @@ public class BrowserSortingPruningTest  extends TestCase
     br.setFacetSpec("color", facetSpec);
     br.setFacetSpec("id", facetSpec);
 
-    BrowseSelection idSel=new BrowseSelection("id");
-    idSel.addValue("42");
-    idSel.addValue("52");
-    idSel.addValue("62");
-    idSel.addValue("72");
-    idSel.addValue("82");
-    idSel.addValue("92");
-    br.addSelection(idSel);
-    
-    // the reverse order by time (the latest is at the front, so, 9, 8, 7, .....; choose 3 readers from the 2nd (starting index is 0), so 7, 6, 5 are selected
-    int startSubReaderIndex = 2;
-    int numSubReaders = 3;
-    BoboBrowser boboBrowser = new BoboBrowser(_boboReader, new BoboReaderTimeBasedComparator("time", true), startSubReaderIndex, numSubReaders);
+    // there are seg_0, seg_1,.., seg_9, the _timeAfter is some time in seg_4 whose lastest time is newer than _timeAfter;
+    // thus, the final segments should be all seg_N where N >=4; all hits are of even id 
+    Pruner pruner =  new BoboIndexReaderTimeBasedPruner("time", _timeAfter);
+    BoboBrowser boboBrowser = new BoboBrowser(_boboReader, null, pruner);
     BrowseResult result = null;
     try{
       result = boboBrowser.browse(br);
 
-      int expectedHitNum = 3;
+      int expectedHitNum = 30; // 6 segments of even ids = 30
       assertEquals(expectedHitNum,result.getNumHits());
      
       StringBuilder buffer=new StringBuilder();
       BrowseHit[] hits=result.getHits();
-      for (int i=0;i<hits.length;++i)
+      int k=0;
+      for (int i=4;i<10;i++)
       {
-        if(i==0) assertEquals("72", hits[i].getField("id"));
-        if(i==1) assertEquals("62", hits[i].getField("id"));
-        if(i==2) assertEquals("52", hits[i].getField("id"));
-        buffer.append("id=" + hits[i].getField("id") + "," + "color=" + hits[i].getField("color") + "\n");
+        for(int j=0; j<10; j+=2, k++)
+        {
+          int id = Integer.valueOf(hits[k].getField("id"));
+          assertEquals(id, i*10+j);
+          buffer.append("id=" + hits[k].getField("id") + "," + "color=" + hits[k].getField("color") + "\n");
+        }
       }
       log.info(buffer.toString());
 
@@ -139,34 +138,47 @@ public class BrowserSortingPruningTest  extends TestCase
     }
   } 
   
-  public void AAtestPrunedMultiReaders() throws Exception{
-    log.info("\n\n ------- Starting test of testNoSortingNoPruningMultiReaders ---------- ");
+  public void testPruningNoSortingWithMultipleSubReaders() throws Exception{
+    log.info("\n\n Starting test of testPruningNoSortingWithMultipleSubReaders");
     
     buildIndex();
-    BrowseRequest br = buildSimpleBrowseRequest();
     getAllReaders(true);
     
-    Set<BoboIndexReader> excludedSubReaders = new HashSet<BoboIndexReader>();
-    int[] excludedIndexes = {1, 3};
-    for(int i=0; i<excludedIndexes.length; i++)
-    {
-      excludedSubReaders.add(_boboSubReaderList.get(excludedIndexes[i]));
-    }
+    BrowseRequest br=new BrowseRequest();
+    br.setCount(100);
+    br.setOffset(0);
+    br.setQuery(new TermQuery(new Term("color", "red")));
     
-    Browsable[]  browsables = BoboBrowser.createBrowsables(_boboSubReaderList, null, excludedSubReaders);
-    MultiBoboBrowser multiBoboBrowser = new MultiBoboBrowser(browsables);
+    FacetSpec facetSpec=new FacetSpec();
+    facetSpec.setMaxCount(100);
+    facetSpec.setMinHitCount(1);
+    facetSpec.setExpandSelection(true);
+    facetSpec.setOrderBy(FacetSortSpec.OrderValueAsc);
+    br.setFacetSpec("color", facetSpec);
+    br.setFacetSpec("id", facetSpec);
+
+    // there are seg_0, seg_1,.., seg_9, the _timeAfter is some time in seg_4 whose lastest time is newer than _timeAfter;
+    // thus, the final segments should be all seg_N where N >=4; all hits are of even id 
+    Pruner pruner =  new BoboIndexReaderTimeBasedPruner("time", _timeAfter);
+    BoboBrowser boboBrowser = new BoboBrowser(_boboSubReaderList, null, pruner);
     BrowseResult result = null;
     try{
-      int expectedHitNum = 3;
-      result = multiBoboBrowser.browse(br);
-      log.info("expectedNum: " + expectedHitNum + ", hitsNum: " + result.getNumHits());
+      result = boboBrowser.browse(br);
+
+      int expectedHitNum = 30;
       assertEquals(expectedHitNum,result.getNumHits());
-      
-      StringBuilder buffer = new StringBuilder();
-      BrowseHit[] hits = result.getHits();
-      for (int i=0;i<hits.length;++i)
+     
+      StringBuilder buffer=new StringBuilder();
+      BrowseHit[] hits=result.getHits();
+      int k=0;
+      for (int i=4;i<10;i++)
       {
-        buffer.append("id=" + hits[i].getField("id") + "," + "color=" + hits[i].getField("color") + "\n");
+        for(int j=0; j<10; j+=2, k++)
+        {
+          int id = Integer.valueOf(hits[k].getField("id"));
+          assertEquals(id, i*10+j);
+          buffer.append("id=" + hits[k].getField("id") + "," + "color=" + hits[k].getField("color") + "\n");
+        }
       }
       log.info(buffer.toString());
 
@@ -174,19 +186,150 @@ public class BrowserSortingPruningTest  extends TestCase
       e.printStackTrace();
     }
     finally{
-      if (multiBoboBrowser!=null){
+      if (boboBrowser!=null){
         try {
           if(result!=null) result.close();
-          multiBoboBrowser.close();
+          boboBrowser.close();
         } catch (IOException e) {
           e.printStackTrace();
         }
       }
-      if(_deleteDirectory) deleteDirectory(new File(_idxDir));
+      if(_deleteDirectory)deleteDirectory(new File(_idxDir));
     }
-  }  
+  } 
+  
+  public void testSortingNoPruningWithOneMultiReader() throws Exception{
+    log.info("\n\n Starting test of testSortingNoPruningWithOneMultiReader");
+    
+    buildIndex();
+    getAllReaders(true);
+    
+    BrowseRequest br=new BrowseRequest();
+    br.setCount(100);
+    br.setOffset(0);
+    br.setQuery(new TermQuery(new Term("color", "red")));
+    
+    FacetSpec facetSpec=new FacetSpec();
+    facetSpec.setMaxCount(100);
+    facetSpec.setMinHitCount(1);
+    facetSpec.setExpandSelection(true);
+    facetSpec.setOrderBy(FacetSortSpec.OrderValueAsc);
+    br.setFacetSpec("color", facetSpec);
+    br.setFacetSpec("id", facetSpec);
 
-  public void AAtestNoSortingNoPruningMultiReaders() throws Exception{
+    
+    // we sort all segments in reversed order by time, thus the seg_0 -> seg_rev_9, ..., seg_4 -> seg_rev_5, seg_6->seg_rev_3,
+    // seg_8 -> seg_rev_1. Thus, after sorting, the hits will still contain results from seg_4 to seg_9. However, the hits are ordered
+    // in first seg_9
+   
+    Comparator comparator = new BoboReaderTimeBasedComparator("time", true);
+    BoboBrowser boboBrowser = new BoboBrowser(_boboReader, comparator, null);
+    BrowseResult result = null;
+    try{
+      result = boboBrowser.browse(br);
+
+      int expectedHitNum = 50;
+      assertEquals(expectedHitNum,result.getNumHits());
+     
+      StringBuilder buffer=new StringBuilder();
+      BrowseHit[] hits=result.getHits();
+      int k=0;
+      for (int i=9;i>0;i--)
+      {
+        for(int j=0; j<10; j+=2, k++)
+        {
+          int id = Integer.valueOf(hits[k].getField("id"));
+          assertEquals(id, i*10+j);
+          buffer.append("id=" + hits[k].getField("id") + "," + "color=" + hits[k].getField("color") + "\n");
+        }
+      }
+      
+      log.info(buffer.toString());
+
+    } catch (BrowseException e) {
+      e.printStackTrace();
+    }
+    finally{
+      if (boboBrowser!=null){
+        try {
+          if(result!=null) result.close();
+          boboBrowser.close();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
+      if(_deleteDirectory)deleteDirectory(new File(_idxDir));
+    }
+  } 
+  
+  
+  public void testSortingAndPruningWithOneMultiReader() throws Exception{
+    log.info("\n\n Starting test of testSortingAndPruningWithOneMultiReader");
+    
+    buildIndex();
+    getAllReaders(true);
+    
+    BrowseRequest br=new BrowseRequest();
+    br.setCount(100);
+    br.setOffset(0);
+    br.setQuery(new TermQuery(new Term("color", "red")));
+    
+    FacetSpec facetSpec=new FacetSpec();
+    facetSpec.setMaxCount(100);
+    facetSpec.setMinHitCount(1);
+    facetSpec.setExpandSelection(true);
+    facetSpec.setOrderBy(FacetSortSpec.OrderValueAsc);
+    br.setFacetSpec("color", facetSpec);
+    br.setFacetSpec("id", facetSpec);
+
+    // there are seg_0, seg_1,.., seg_9, the _timeAfter is some time in seg_4 whose lastest time is newer than _timeAfter;
+    // thus, the final segments should be all seg_N where N >=4; all hits are of even id 
+    // we sort all segments in reversed order by time, thus the seg_0 -> seg_rev_9, ..., seg_4 -> seg_rev_5, seg_6->seg_rev_3,
+    // seg_8 -> seg_rev_1. Thus, after sorting, the hits will still contain results from seg_4 to seg_9. However, the hits are ordered
+    // in first seg_9
+   
+    Pruner pruner =  new BoboIndexReaderTimeBasedPruner("time", _timeAfter);
+    Comparator comparator = new BoboReaderTimeBasedComparator("time", true);
+    BoboBrowser boboBrowser = new BoboBrowser(_boboReader, comparator, pruner);
+    BrowseResult result = null;
+    try{
+      result = boboBrowser.browse(br);
+
+      int expectedHitNum = 30;
+      assertEquals(expectedHitNum,result.getNumHits());
+     
+      StringBuilder buffer=new StringBuilder();
+      BrowseHit[] hits=result.getHits();
+      int k=0;
+      for (int i=9;i>3;i--)
+      {
+        for(int j=0; j<10; j+=2, k++)
+        {
+          int id = Integer.valueOf(hits[k].getField("id"));
+          assertEquals(id, i*10+j);
+          buffer.append("id=" + hits[k].getField("id") + "," + "color=" + hits[k].getField("color") + "\n");
+        }
+      }
+      
+      log.info(buffer.toString());
+
+    } catch (BrowseException e) {
+      e.printStackTrace();
+    }
+    finally{
+      if (boboBrowser!=null){
+        try {
+          if(result!=null) result.close();
+          boboBrowser.close();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
+      if(_deleteDirectory)deleteDirectory(new File(_idxDir));
+    }
+  } 
+  
+  public void testNoSortingNoPruningMultiReaders() throws Exception{
     log.info("\n\n  --------- Starting test of testNoSortingNoPruningMultiReaders -----------");
     
     buildIndex();
@@ -226,7 +369,7 @@ public class BrowserSortingPruningTest  extends TestCase
     }
   }  
   
-  public void AAtestNoSortingNoPruningSingleReader() throws Exception{
+  public void testNoSortingNoPruningSingleReader() throws Exception{
     log.info("\n\n  ------- Starting test of testNoSortingNoPruningSingleReader ---------");
     
     buildIndex();
@@ -309,6 +452,11 @@ public class BrowserSortingPruningTest  extends TestCase
         String ID = Integer.toString(i);
         Document doc = new Document();
         long time = new Date().getTime();
+        // set the _timeAfter as some time in the fifth segment 
+        if(i==43) 
+        {
+          _timeAfter = time;
+        }
         doc.add(new Field("id",ID,Field.Store.NO,Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field("time",String.valueOf(time),Field.Store.NO,Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field("color",color,Field.Store.NO,Index.NOT_ANALYZED_NO_NORMS));

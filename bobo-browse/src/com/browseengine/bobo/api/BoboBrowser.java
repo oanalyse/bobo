@@ -23,7 +23,7 @@ public class BoboBrowser extends MultiBoboBrowser
 {
   private static Logger logger = Logger.getLogger(BoboBrowser.class);
   /**
-   * @param reader BoboIndexReader
+   * @param reader BoboIndexReader (reader or subreader)
    * @throws IOException
    */
   public BoboBrowser(BoboIndexReader reader) throws IOException
@@ -32,26 +32,27 @@ public class BoboBrowser extends MultiBoboBrowser
   }
 
   /**
-   * @param reader BoboIndexReader
+   * @param reader BoboIndexReader (reader or subreader)
    * @throws IOException
    */
-  public BoboBrowser(BoboIndexReader reader, Comparator<BoboIndexReader> readerComparator, Set<BoboIndexReader> excludedSubReaders) throws IOException
+  public BoboBrowser(BoboIndexReader reader, Comparator<BoboIndexReader> readerComparator, Pruner pruner) throws IOException
   {
-    super(createBrowsables(reader, readerComparator, excludedSubReaders));
+    super(createBrowsables(reader, readerComparator, pruner));
   }
   
   /**
-   * @param reader BoboIndexReader
+   * @param reader List of BoboIndexReaders (reader or subreader)
    * @throws IOException
    */
-  public BoboBrowser(BoboIndexReader reader, Comparator<BoboIndexReader> readerComparator, int firstSubReaderIndex, int numSubReaders) throws IOException
+  public BoboBrowser(List<BoboIndexReader> readerList, Comparator<BoboIndexReader> readerComparator, Pruner pruner) throws IOException
   {
-    super(createBrowsables(reader, readerComparator, firstSubReaderIndex, numSubReaders));
+    super(createBrowsables(readerList, readerComparator, pruner));
   }
   
+  
   /**
-   * @param reader The reader could be a reader or subreader
-   * @return an array of Browsables associated with the subReaders of the given input reader
+   * @param reader BoboIndexReader (reader or subreader)
+   * @return an array of Browsables each of which corresponds to a particular subReader
    */
   public static Browsable[] createBrowsables(BoboIndexReader reader)
   {
@@ -60,8 +61,8 @@ public class BoboBrowser extends MultiBoboBrowser
   
   
   /**
-   * @param readerList Any reader of it could be a reader or subreader
-   * @return an array of Browsables associated with the subReaders of the given input reader
+   * @param readerList List of BoboIndexReaders (readre or subReader)
+   * @return an array of Browsables each of which corresponds to a particular subReader
    */
   public static Browsable[] createBrowsables(List<BoboIndexReader> readerList){
     return createBrowsables(readerList, null, null);
@@ -69,60 +70,48 @@ public class BoboBrowser extends MultiBoboBrowser
   
   /**
    * 
-   * @param reader The reader could be a reader or subReader
+   * @param reader BoboIndexReader (reader or subreader)
    * @param readerComparator Comparator to compare subReaders
-   * @param excludedSubReaders The set of excluded subReaders each of which cannot further have its subReaders
-   * @return An array of Browsables associated with the sorted subReaders of the given input reader (excluding those subReaders in excludedSubReaders)
+   * @param pruner Pruner
+   * @return an array of Browsables each of which corresponds to a particular subReader; the underlying pruned subReaders are in sorted order 
    */
-  public static Browsable[] createBrowsables(BoboIndexReader reader, Comparator<BoboIndexReader> readerComparator, Set<BoboIndexReader> excludedSubReaders)
+  public static Browsable[] createBrowsables(BoboIndexReader reader, Comparator<BoboIndexReader> readerComparator, Pruner pruner)
   {
-    return createBrowsablesFromSubReaderList(getSubReaderList(reader, excludedSubReaders), readerComparator);
+    return createBrowsablesFromSubReaderList(getSubReaderList(reader, pruner), readerComparator);
   }
   
   /**
    * 
-   * @param readerList The list of readers which can be readers or subReaders
+   * @param readerList List of BoboIndexReaders (reader or subreader)
    * @param readerComparator Comparator to compare subReaders
-   * @param excludedSubReaders The set of excluded subReaders each of which cannot further have its subReaders
-   * @return An array of Browsables associated with the sorted subReaders of the given input reader (excluding those subReaders in excludedSubReaders)
+   * @param pruner Pruner
+   * @return an array of Browsables each of which corresponds to a particular subReader; the underlying pruned subReaders are in sorted order 
    */
-  public static Browsable[] createBrowsables(List<BoboIndexReader> readerList,  Comparator<BoboIndexReader> readerComparator, Set<BoboIndexReader> excludedSubReaders)
+  public static Browsable[] createBrowsables(List<BoboIndexReader> readerList,  Comparator<BoboIndexReader> readerComparator, Pruner pruner)
   {
-    return createBrowsablesFromSubReaderList(getSubReaderList(readerList, excludedSubReaders), readerComparator);
+    return createBrowsablesFromSubReaderList(getSubReaderList(readerList, pruner), readerComparator);
   }
   
   /**
    * 
-   * @param readerList The list of readers which can be readers or subReaders
-   * @param readerComparator Comparator to compare subReaders
-   * @param excludedSubReaders The set of excluded subReaders each of which cannot further have its subReaders
-   * @return An array of Browsables associated with the sorted subReaders of the given input reader (excluding those subReaders in excludedSubReaders)
+   * @param reader BoboIndexReader (reader or subreader)
+   * @param pruner Pruner
+   * @return A list of pruned subReaders (none of them have further subReaders) 
    */
-  public static Browsable[] createBrowsables(List<BoboIndexReader> readerList,  Comparator<BoboIndexReader> readerComparator, int startSubReaderIndex, int numSubReaders)
-  {
-    return createBrowsablesFromSubReaderList(getSubReaderList(readerList, null), readerComparator, startSubReaderIndex, numSubReaders);
-  }
-  
-  /**
-   * 
-   * @param reader The reader could be a reader or subReader
-   * @param excludedSubReaders The set of excluded subReaders each of which cannot further have its subReaders
-   * @return A list of subReaders (each of which does not have its subReaders) of the given reader excluding those subReaders in excludedSubReaders
-   */
-  private static List<BoboIndexReader> getSubReaderList(BoboIndexReader reader, Set<BoboIndexReader> excludedSubReaders)
+  private static List<BoboIndexReader> getSubReaderList(BoboIndexReader reader, Pruner pruner)
   {
     List<BoboIndexReader> readerList = new ArrayList<BoboIndexReader>();
     readerList.add(reader);
-    return getSubReaderList(readerList, excludedSubReaders);
+    return getSubReaderList(readerList, pruner);
   }
   
   /**
    * 
-   * @param readerList The readerList cannot be null and at least contains one reader or subReader
-   * @param excludedSubReaders The set of excluded subReaders each of which cannot further have its subReaders
-   * @return A list of subReaders (each of which does not have its subReaders) of the given readerList excluding those subReaders in excludedSubReaders
+   * @param readerList List of BoboIndexReaders (reader or subreader)
+   * @param pruner Pruner
+   * @return A list of pruned subReaders (none of them have further subReaders) 
    */
-  private static List<BoboIndexReader> getSubReaderList(List<BoboIndexReader> readerList, Set<BoboIndexReader> excludedSubReaders)
+  private static List<BoboIndexReader> getSubReaderList(List<BoboIndexReader> readerList, Pruner pruner)
   {
     List<BoboIndexReader> allSubReaderList = new ArrayList<BoboIndexReader>();
     for (BoboIndexReader reader : readerList)
@@ -139,14 +128,14 @@ public class BoboBrowser extends MultiBoboBrowser
       }
     }
     
-    if(excludedSubReaders == null)
+    if(pruner == null)
       return allSubReaderList;
     
     List<BoboIndexReader> prunedSubReaderList = null; 
     for(BoboIndexReader subReader : allSubReaderList)
     {
-      boolean sss = excludedSubReaders.contains(subReader);
-      if(!sss)
+      boolean isPruned = pruner.isPruned(subReader);
+      if(!isPruned)
       {
         if(prunedSubReaderList == null)
         {
@@ -159,52 +148,23 @@ public class BoboBrowser extends MultiBoboBrowser
   }
   
   /**
-   * 
-   * @param reader The reader could be a reader or subReader
-   * @param readerComparator Comparator to compare subReaders
-   * @param excludedSubReaders The set of excluded subReaders each of which cannot further have its subReaders
-   * @return An array of Browsables associated with the sorted subReaders of the given input reader (excluding those subReaders in excludedSubReaders)
-   */
-  public static Browsable[] createBrowsables(BoboIndexReader reader, Comparator<BoboIndexReader> readerComparator, 
-      int startSubReaderIndex, int numSubReaders)
-  {
-    return createBrowsablesFromSubReaderList(getSubReaderList(reader, null), readerComparator, startSubReaderIndex, numSubReaders);
-  }
-  
-  /**
    * Build browsables on sorted readers and pick certain numbers of the sorted browsables
-   * @param subReaderList A list of subReaders each of which cannot further have its subReaders
+   * @param subReaderList List of BoboIndexReaders (none of them have further subReaders)
    * @param readerComparator Comparator to compare readers
-   * @param startSubReaderIndex 
-   * @param numSubReaders
-   * @return An array of Browsables associated with the sorted subReaders of the given input subReaderList (excluding those subReaders in excludedSubReaders)
+   * @return An array of Browsables each of which corresponds to a particular subReader; the underlying pruned subReaders are in sorted order 
    */
-  public static Browsable[] createBrowsablesFromSubReaderList(List<BoboIndexReader> subReaderList, Comparator<BoboIndexReader> readerComparator, 
-                                                                                     int startSubReaderIndex, int numSubReaders)
+  public static Browsable[] createBrowsablesFromSubReaderList(List<BoboIndexReader> subReaderList, Comparator<BoboIndexReader> readerComparator)
   {
     BoboIndexReader[] subReaders = subReaderList.toArray(new BoboIndexReader[subReaderList.size()]);
     if (readerComparator != null) Arrays.sort(subReaders, readerComparator);
     
-    numSubReaders = numSubReaders < subReaderList.size() ? numSubReaders : subReaderList.size();
-    
-    Browsable[] subBrowsables = new Browsable[numSubReaders];
-    int size=0;
-    for(int i = startSubReaderIndex; i < (startSubReaderIndex + numSubReaders) ; i++)
+    int size = subReaderList.size();
+    Browsable[] subBrowsables = new Browsable[size];
+    for(int i = 0; i < size; i++)
     {
-      subBrowsables[size++] = new BoboSubBrowser(subReaders[i]);
+      subBrowsables[i] = new BoboSubBrowser(subReaders[i]);
     }
     return subBrowsables;
-  }
-  
-  /**
-   * 
-   * @param subReaderList A list of subReaders each of which cannot further have its subReaders
-   * @param readerComparator Comparator to compare readers
-   * @return An array of Browsables associated with the sorted subReaders of the given input subReaderList (excluding those subReaders in excludedSubReaders)
-   */
-  public static Browsable[] createBrowsablesFromSubReaderList(List<BoboIndexReader> subReaderList, Comparator<BoboIndexReader> readerComparator)
-  {
-    return createBrowsablesFromSubReaderList(subReaderList, readerComparator,  0, subReaderList.size()-1);
   }
   
   /**
